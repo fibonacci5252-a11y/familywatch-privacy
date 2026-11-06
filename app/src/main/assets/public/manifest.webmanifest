@@ -1,0 +1,26 @@
+{
+  "name": "AetherCast — Météo Android & Alertes",
+  "short_name": "AetherCast",
+  "description": "Application météo mobile Android avec rendu atmosphérique immersif 60 FPS, prévisions géolocalisées ultra-précises, alertes à la minute et radar interactif.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0F19",
+  "theme_color": "#0284C7",
+  "categories": ["weather", "utilities"],
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "app-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
