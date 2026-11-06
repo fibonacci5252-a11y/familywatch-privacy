@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">AetherCast</string>
     <string name="package_name">com.aethercast.app</string>
+    <string name="widget_description">Météo actuelle avec température, vent et humidité</string>
 </resources>
