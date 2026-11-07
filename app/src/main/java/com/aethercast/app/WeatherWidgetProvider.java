@@ -52,9 +52,9 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.widget_description, pendingIntent);
 
         CityManager cityManager = new CityManager(context);
-        String[] defaultCity = cityManager.getDefaultCity();
+        WeatherData.City city = cityManager.getDefaultCity();
 
-        if (defaultCity == null) {
+        if (city == null) {
             views.setTextViewText(R.id.widget_city, "Aucune ville");
             views.setTextViewText(R.id.widget_temp, "--°");
             views.setTextViewText(R.id.widget_description, "Configurez une ville");
@@ -62,30 +62,24 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
             return;
         }
 
-        String cityName = defaultCity[0];
-        double lat = Double.parseDouble(defaultCity[1]);
-        double lon = Double.parseDouble(defaultCity[2]);
-
-        WeatherCache cache = new WeatherCache(context);
-        WeatherData weather = cache.load();
-
-        if (weather == null) {
-            weather = WeatherApiClient.fetchWeatherSync(lat, lon);
-            if (weather != null) {
-                cache.save(weather);
-            }
-        }
+        WeatherApiClient apiClient = new WeatherApiClient();
+        WeatherData.WeatherResponse weather = apiClient.fetchWeather(city.latitude, city.longitude);
 
         if (weather != null) {
-            views.setTextViewText(R.id.widget_city, getWeatherEmoji(weather.weatherCode) + " " + cityName);
-            views.setTextViewText(R.id.widget_temp, Math.round(weather.temperature) + "°");
-            views.setTextViewText(R.id.widget_description, weather.description);
-            views.setTextViewText(R.id.widget_high_low,
-                    "↑" + Math.round(weather.tempMax) + "° ↓" + Math.round(weather.tempMin) + "°");
-            views.setTextViewText(R.id.widget_humidity, "💧 " + Math.round(weather.humidity) + "%");
-            views.setTextViewText(R.id.widget_wind, "💨 " + Math.round(weather.windSpeed) + " km/h");
+            String emoji = getWeatherEmoji(weather.current.weatherCode);
+            views.setTextViewText(R.id.widget_city, emoji + " " + city.name);
+            views.setTextViewText(R.id.widget_temp, Math.round(weather.current.temperature) + "°");
+            views.setTextViewText(R.id.widget_description,
+                    WeatherData.getWeatherDescription(weather.current.weatherCode));
+            if (weather.daily != null && !weather.daily.isEmpty()) {
+                views.setTextViewText(R.id.widget_high_low,
+                        "↑" + Math.round(weather.daily.get(0).temperatureMax) + "° ↓"
+                                + Math.round(weather.daily.get(0).temperatureMin) + "°");
+            }
+            views.setTextViewText(R.id.widget_humidity, "💧 " + weather.current.humidity + "%");
+            views.setTextViewText(R.id.widget_wind, "💨 " + Math.round(weather.current.windSpeed) + " km/h");
         } else {
-            views.setTextViewText(R.id.widget_city, cityName);
+            views.setTextViewText(R.id.widget_city, city.name);
             views.setTextViewText(R.id.widget_temp, "--°");
             views.setTextViewText(R.id.widget_description, "Pas de connexion");
         }

@@ -27,67 +27,68 @@ public class WeatherAlertWorker extends Worker {
         NotificationHelper notificationHelper = new NotificationHelper(context);
         CityManager cityManager = new CityManager(context);
 
-        String[] defaultCity = cityManager.getDefaultCity();
-        if (defaultCity == null) {
+        WeatherData.City city = cityManager.getDefaultCity();
+        if (city == null) {
             return Result.success();
         }
 
-        double lat = Double.parseDouble(defaultCity[1]);
-        double lon = Double.parseDouble(defaultCity[2]);
-
-        WeatherData weather = WeatherApiClient.fetchWeatherSync(lat, lon);
+        WeatherApiClient apiClient = new WeatherApiClient();
+        WeatherData.WeatherResponse weather = apiClient.fetchWeather(city.latitude, city.longitude);
         if (weather == null) {
             return Result.retry();
         }
 
-        WeatherCache cache = new WeatherCache(context);
-        cache.save(weather);
-
         int alertId = 4000;
 
-        if (weather.temperature > 35) {
+        if (weather.current.temperature > 35) {
             notificationHelper.showSevereWeatherAlert(
                     "Alerte canicule",
-                    "Température extrême de " + Math.round(weather.temperature) + "°C prévue. Restez hydraté et évitez l'exposition au soleil.");
+                    "Température extrême de " + Math.round(weather.current.temperature)
+                            + "°C prévue. Restez hydraté et évitez l'exposition au soleil.");
         }
 
-        if (weather.temperature < -10) {
+        if (weather.current.temperature < -10) {
             notificationHelper.showSevereWeatherAlert(
                     "Alerte grand froid",
-                    "Température de " + Math.round(weather.temperature) + "°C prévue. Protégez-vous du froid et limitez les sorties.");
+                    "Température de " + Math.round(weather.current.temperature)
+                            + "°C prévue. Protégez-vous du froid et limitez les sorties.");
         }
 
-        if (weather.weatherCode >= 95 && weather.weatherCode <= 99) {
+        if (weather.current.weatherCode >= 95 && weather.current.weatherCode <= 99) {
             notificationHelper.showSevereWeatherAlert(
                     "Alerte orage",
                     "Orages violents prévus dans votre zone. Mettez-vous à l'abri et évitez les zones exposées.");
         }
 
-        if (weather.windSpeed > 80) {
+        if (weather.current.windSpeed > 80) {
             notificationHelper.showWeatherAlert(
                     "Alerte vent violent",
-                    "Rafales jusqu'à " + Math.round(weather.windSpeed) + " km/h prévues. Sécurisez les objets extérieurs.",
+                    "Rafales jusqu'à " + Math.round(weather.current.windSpeed)
+                            + " km/h prévues. Sécurisez les objets extérieurs.",
                     alertId++);
         }
 
-        if (weather.uvIndex > 8) {
+        if (weather.current.uvIndex > 8) {
             notificationHelper.showWeatherAlert(
                     "Alerte UV élevé",
-                    "Indice UV de " + Math.round(weather.uvIndex) + ". Protection solaire indispensable, évitez l'exposition entre 12h et 16h.",
+                    "Indice UV de " + Math.round(weather.current.uvIndex)
+                            + ". Protection solaire indispensable, évitez l'exposition entre 12h et 16h.",
                     alertId++);
         }
 
-        if (weather.aqi > 100) {
+        if (weather.airQuality != null && weather.airQuality.usAqi > 100) {
             notificationHelper.showWeatherAlert(
                     "Alerte qualité de l'air",
-                    "Indice de qualité de l'air dégradé (AQI: " + Math.round(weather.aqi) + "). Limitez les activités extérieures.",
+                    "Indice de qualité de l'air dégradé (AQI: " + weather.airQuality.usAqi
+                            + "). Limitez les activités extérieures.",
                     alertId++);
         }
 
-        if (weather.precipitation > 20) {
+        if (weather.current.precipitation > 20) {
             notificationHelper.showWeatherAlert(
                     "Alerte fortes précipitations",
-                    "Précipitations de " + Math.round(weather.precipitation) + " mm prévues. Risque d'inondations localisées.",
+                    "Précipitations de " + Math.round(weather.current.precipitation)
+                            + " mm prévues. Risque d'inondations localisées.",
                     alertId++);
         }
 
