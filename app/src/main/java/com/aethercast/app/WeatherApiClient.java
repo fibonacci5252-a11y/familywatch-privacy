@@ -176,6 +176,30 @@ public class WeatherApiClient {
         return cities;
     }
 
+    public String fetchWeatherRaw(double lat, double lon) {
+        String url = String.format(Locale.US,
+                "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+                + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
+                + "precipitation,weather_code,wind_speed_10m,wind_direction_10m,uv_index,is_day"
+                + "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,uv_index"
+                + "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,"
+                + "precipitation_sum,weather_code"
+                + "&minutely_15=precipitation"
+                + "&timezone=auto&forecast_days=7",
+                lat, lon);
+        return httpGet(url);
+    }
+
+    public String fetchAirQualityRaw(double lat, double lon) {
+        String url = String.format(Locale.US,
+                "https://air-quality-api.open-meteo.com/v1/air-quality?"
+                + "latitude=%.4f&longitude=%.4f"
+                + "&current=european_aqi,us_aqi,pm10,pm2_5,"
+                + "carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone",
+                lat, lon);
+        return httpGet(url);
+    }
+
     public String reverseGeocode(double lat, double lon) {
         return "Ma position";
     }

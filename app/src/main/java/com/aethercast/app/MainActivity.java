@@ -24,6 +24,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String ASSET_BASE_URL = "file:///android_asset/public/";
 
     private WebView webView;
+    private WebAppBridge bridge;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
 
@@ -36,8 +37,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(webView);
 
         configureWebView();
+        setupBridge();
         setupBackNavigation();
         requestNotificationPermission();
+        scheduleWeatherAlerts();
 
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
@@ -94,7 +97,34 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return false;
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                injectBridgeScript();
+            }
         });
+    }
+
+    @SuppressLint("AddJavascriptInterface")
+    private void setupBridge() {
+        bridge = new WebAppBridge(this);
+        bridge.setLocationListener(this::requestLocationPermission);
+        webView.addJavascriptInterface(bridge, "Android");
+    }
+
+    private void injectBridgeScript() {
+        String js = "if (!document.getElementById('aethercast-bridge')) {"
+                + "  var s = document.createElement('script');"
+                + "  s.id = 'aethercast-bridge';"
+                + "  s.src = 'bridge.js';"
+                + "  document.body.appendChild(s);"
+                + "}";
+        webView.evaluateJavascript(js, null);
+    }
+
+    private void scheduleWeatherAlerts() {
+        WeatherAlertWorker.schedulePeriodicWork(this);
     }
 
     private void setupBackNavigation() {
