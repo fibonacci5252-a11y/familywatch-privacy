@@ -647,70 +647,201 @@
 
     // ===== Feature: Radar =====
 
+    var radarMap = null;
+    var radarLayer = null;
+
     function openRadar() {
-        var panel = createPanel('radar', 'Radar météo');
+        var panel = createPanel('radar', 'Radar & Carte Satellite');
         showPanel('radar');
         setPanelLoading('radar');
 
         getCurrentPosition().then(function(pos) {
             if (!pos) { setPanelContent('radar', emptyState('🗺️', 'Position indisponible', '')); return; }
-            callBridge(function() { return Android.getWeatherData(pos.lat, pos.lon); }).then(function(raw) {
-                renderRadar(raw, pos);
+            loadLeaflet(function() {
+                callBridge(function() { return Android.getWeatherData(pos.lat, pos.lon); }).then(function(raw) {
+                    renderRadarMap(raw, pos);
+                });
             });
         });
     }
 
-    function renderRadar(raw, pos) {
+    function loadLeaflet(callback) {
+        if (window.L) { callback(); return; }
+        var css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+        document.head.appendChild(css);
+        var js = document.createElement('script');
+        js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+        js.onload = function() { callback(); };
+        js.onerror = function() { callback(); };
+        document.head.appendChild(js);
+    }
+
+    function renderRadarMap(raw, pos) {
         var data;
         try { data = JSON.parse(raw); } catch(e) { setPanelContent('radar', emptyState('📉', 'Données indisponibles', '')); return; }
 
         var hourly = data.hourly || {};
+        var current = data.current || {};
         var html = '';
 
-        // Precipitation heatmap: rows = precipitation types (rain, snow, showers), columns = next 12h
-        html += '<div class="section-title">Intensité des précipitations (12h)</div>';
-        html += '<div class="weather-card"><div class="radar-container"><canvas class="radar-canvas" id="ac-radar-canvas"></canvas>' +
-            '<div class="radar-legend">' +
-            '<div class="radar-legend-item"><div class="radar-legend-dot" style="background:#1e3a5f"></div>Faible</div>' +
-            '<div class="radar-legend-item"><div class="radar-legend-dot" style="background:#38bdf8"></div>Modéré</div>' +
-            '<div class="radar-legend-item"><div class="radar-legend-dot" style="background:#0284c7"></div>Fort</div>' +
-            '<div class="radar-legend-item"><div class="radar-legend-dot" style="background:#7c3aed"></div>Violent</div>' +
-            '</div></div></div>';
+        // Map container
+        html += '<div class="weather-card" style="padding:0;overflow:hidden;border-radius:16px;position:relative">' +
+            '<div id="ac-radar-map" style="width:100%;height:380px;z-index:1"></div></div>';
 
-        // Wind conditions
-        if (hourly.windspeed_10m && hourly.winddirection_10m) {
+        // Front/wind analysis
+        var windSpeed = current.wind_speed_10m || 0;
+        var windDir = current.wind_direction_10m || 0;
+        var weatherCode = current.weather_code || 0;
+        var frontInfo = analyzeFront(windDir, windSpeed, weatherCode);
+        if (frontInfo) {
+            html += '<div class="weather-card radar-front-card">' +
+                '<div class="radar-front-icon">' + frontInfo.icon + '</div>' +
+                '<div class="radar-front-info">' +
+                '<div class="radar-front-title">' + frontInfo.title + '</div>' +
+                '<div class="radar-front-detail">' + frontInfo.detail + '</div>' +
+                '</div></div>';
+        }
+
+        // Precipitation chart (12h)
+        html += '<div class="section-title">Précipitations (12h)</div>';
+        html += '<div class="weather-card"><div class="radar-chart-container">' +
+            '<canvas id="ac-radar-canvas"></canvas></div></div>';
+
+        // Wind scroll
+        if (hourly.wind_speed_10m && hourly.wind_direction_10m) {
             html += '<div class="section-title">Conditions de vent</div><div class="forecast-scroll">';
             var nowH = new Date();
-            var currentHour = nowH.getFullYear() + '-' + String(nowH.getMonth() + 1).padStart(2, '0') + '-' + String(nowH.getDate()).padStart(2, '0') + 'T' + String(nowH.getHours()).padStart(2, '0');
+            var curHour = nowH.getFullYear() + '-' + String(nowH.getMonth() + 1).padStart(2, '0') + '-' + String(nowH.getDate()).padStart(2, '0') + 'T' + String(nowH.getHours()).padStart(2, '0');
             var shown = 0;
             for (var i = 0; i < hourly.time.length && shown < 24; i++) {
-                if (hourly.time[i] < currentHour) continue;
-                var speed = hourly.windspeed_10m[i] || 0;
-                var dir = hourly.winddirection_10m[i] || 0;
-                var hTime = (hourly.time[i].split('T')[1] || '').slice(0, 5);
-                var arrow = '↑';
+                if (hourly.time[i] < curHour) continue;
+                var sp = hourly.wind_speed_10m[i] || 0;
+                var dr = hourly.wind_direction_10m[i] || 0;
+                var hT = (hourly.time[i].split('T')[1] || '').slice(0, 5);
                 html += '<div class="hour-card">' +
-                    '<div class="hour-time">' + hTime + '</div>' +
-                    '<div class="hour-icon" style="transform:rotate(' + dir + 'deg);font-size:20px">' + arrow + '</div>' +
-                    '<div class="hour-temp">' + Math.round(speed) + '</div>' +
+                    '<div class="hour-time">' + hT + '</div>' +
+                    '<div class="hour-icon" style="transform:rotate(' + dr + 'deg);font-size:20px">↑</div>' +
+                    '<div class="hour-temp">' + Math.round(sp) + '</div>' +
                     '<div class="hour-precip">km/h</div></div>';
                 shown++;
             }
             html += '</div>';
         }
 
-        // Location info
-        html += '<div class="weather-card" style="text-align:center">' +
-            '<div style="font-size:13px;color:#64748b">Position</div>' +
-            '<div style="font-size:14px;color:#e2e8f0;margin-top:4px">' + pos.lat.toFixed(4) + ', ' + pos.lon.toFixed(4) + '</div></div>';
-
         setPanelContent('radar', html);
 
-        // Draw radar canvas
-        setTimeout(function() { drawRadarCanvas(hourly); }, 100);
+        setTimeout(function() {
+            initRadarMap(pos);
+            drawRadarChart(hourly);
+        }, 200);
     }
 
-    function drawRadarCanvas(hourly) {
+    function initRadarMap(pos) {
+        var mapEl = document.getElementById('ac-radar-map');
+        if (!mapEl || !window.L) return;
+
+        if (radarMap) { radarMap.remove(); radarMap = null; }
+
+        radarMap = L.map(mapEl, {
+            center: [pos.lat, pos.lon],
+            zoom: 8,
+            zoomControl: false,
+            attributionControl: true
+        });
+
+        // Satellite base layer (ESRI World Imagery)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri Satellite',
+            maxZoom: 18
+        }).addTo(radarMap);
+
+        L.control.zoom({ position: 'topright' }).addTo(radarMap);
+
+        // Location marker
+        L.circleMarker([pos.lat, pos.lon], {
+            radius: 8, fillColor: '#38bdf8', fillOpacity: 0.9,
+            color: '#fff', weight: 2.5
+        }).addTo(radarMap);
+        L.circleMarker([pos.lat, pos.lon], {
+            radius: 22, fillColor: '#38bdf8', fillOpacity: 0.12,
+            color: '#38bdf8', weight: 1, opacity: 0.3
+        }).addTo(radarMap);
+
+        // RainViewer radar overlay
+        loadRainViewerRadar(radarMap);
+    }
+
+    function loadRainViewerRadar(map) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://api.rainviewer.com/public/weather-maps.json');
+        xhr.onload = function() {
+            if (xhr.status !== 200) return;
+            try {
+                var apiData = JSON.parse(xhr.responseText);
+                var radar = apiData.radar;
+                if (!radar || !radar.past || radar.past.length === 0) return;
+                var latest = radar.past[radar.past.length - 1];
+
+                radarLayer = L.tileLayer(apiData.host + latest.path + '/256/{z}/{x}/{y}/6/1_1.png', {
+                    opacity: 0.55,
+                    zIndex: 10
+                }).addTo(map);
+
+                addRadarOverlays(map, latest.time);
+            } catch(e) {}
+        };
+        xhr.onerror = function() {};
+        xhr.send();
+    }
+
+    function addRadarOverlays(map, timestamp) {
+        var legend = L.control({ position: 'bottomleft' });
+        legend.onAdd = function() {
+            var div = L.DomUtil.create('div', 'radar-map-legend');
+            var date = new Date(timestamp * 1000);
+            var timeStr = String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+            div.innerHTML =
+                '<div class="rml-row">' +
+                '<span class="rml-label">Intensité:</span>' +
+                '<span class="rml-dot" style="background:#61c8ff"></span>' +
+                '<span class="rml-dot" style="background:#3dba3d"></span>' +
+                '<span class="rml-dot" style="background:#f5e636"></span>' +
+                '<span class="rml-dot" style="background:#f58c36"></span>' +
+                '<span class="rml-dot" style="background:#f53636"></span>' +
+                '<span class="rml-dot" style="background:#c836e0"></span>' +
+                '<span class="rml-label" style="margin-left:2px">>50 dBZ</span>' +
+                '</div>' +
+                '<div class="rml-time">🕐 ' + timeStr + ' (En direct)</div>';
+            return div;
+        };
+        legend.addTo(map);
+    }
+
+    function analyzeFront(windDir, windSpeed, weatherCode) {
+        if (windSpeed < 5 && weatherCode === 0) return null;
+        var dirs = ['N','NE','E','SE','S','SO','O','NO'];
+        var fromIdx = Math.round(windDir / 45) % 8;
+        var toIdx = (fromIdx + 4) % 8;
+        var icon = '💨', title = 'Flux ' + dirs[fromIdx] + ' → ' + dirs[toIdx];
+        var detail = 'Vitesse: ~' + Math.round(windSpeed) + ' km/h';
+        if (weatherCode >= 95) {
+            icon = '⚡'; title = 'Front orageux ' + dirs[fromIdx] + ' → ' + dirs[toIdx];
+            detail += ' · Orages actifs';
+        } else if (weatherCode >= 61 && weatherCode <= 67) {
+            icon = '🌧️'; title = 'Front pluvieux ' + dirs[fromIdx] + ' → ' + dirs[toIdx];
+            detail += ' · Pluie active';
+        } else if (weatherCode >= 71 && weatherCode <= 77) {
+            icon = '❄️'; title = 'Front neigeux ' + dirs[fromIdx] + ' → ' + dirs[toIdx];
+            detail += ' · Neige';
+        } else if (windSpeed > 50) {
+            icon = '🌬️'; title = 'Vents forts ' + dirs[fromIdx] + ' → ' + dirs[toIdx];
+        }
+        return { icon: icon, title: title, detail: detail };
+    }
+
+    function drawRadarChart(hourly) {
         var canvas = document.getElementById('ac-radar-canvas');
         if (!canvas) return;
         var parent = canvas.parentElement;
@@ -721,34 +852,25 @@
         var ctx = canvas.getContext('2d');
         ctx.scale(2, 2);
 
-        var w = parent.offsetWidth;
-        var h = parent.offsetHeight - 44;
+        var w = parent.offsetWidth, h = parent.offsetHeight;
         var padL = 40, padR = 12, padT = 20, padB = 40;
         var chartW = w - padL - padR;
         var chartH = h - padT - padB;
 
-        // Collect next 12 hours of data
         var nowH = new Date();
-        var currentHour = nowH.getFullYear() + '-' + String(nowH.getMonth() + 1).padStart(2, '0') + '-' + String(nowH.getDate()).padStart(2, '0') + 'T' + String(nowH.getHours()).padStart(2, '0');
-        var times = [], rain = [], showers = [], snow = [];
+        var curHour = nowH.getFullYear() + '-' + String(nowH.getMonth() + 1).padStart(2, '0') + '-' + String(nowH.getDate()).padStart(2, '0') + 'T' + String(nowH.getHours()).padStart(2, '0');
+        var times = [], precip = [];
         for (var i = 0; i < (hourly.time || []).length && times.length < 12; i++) {
-            if (hourly.time[i] < currentHour) continue;
+            if (hourly.time[i] < curHour) continue;
             times.push((hourly.time[i].split('T')[1] || '').slice(0, 5));
-            rain.push((hourly.rain && hourly.rain[i]) || (hourly.precipitation && hourly.precipitation[i]) || 0);
-            showers.push((hourly.showers && hourly.showers[i]) || 0);
-            snow.push((hourly.snowfall && hourly.snowfall[i]) || 0);
+            precip.push((hourly.precipitation && hourly.precipitation[i]) || 0);
         }
-
         if (times.length === 0) return;
 
         var maxVal = 0;
-        for (var j = 0; j < times.length; j++) {
-            var total = rain[j] + showers[j] + snow[j];
-            if (total > maxVal) maxVal = total;
-        }
+        for (var j = 0; j < precip.length; j++) { if (precip[j] > maxVal) maxVal = precip[j]; }
         if (maxVal === 0) maxVal = 1;
 
-        // Background grid
         ctx.strokeStyle = 'rgba(255,255,255,.06)';
         ctx.lineWidth = 1;
         for (var g = 0; g <= 4; g++) {
@@ -756,7 +878,6 @@
             ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(padL + chartW, gy); ctx.stroke();
         }
 
-        // Y-axis labels
         ctx.fillStyle = '#475569';
         ctx.font = '11px Plus Jakarta Sans, sans-serif';
         ctx.textAlign = 'right';
@@ -765,34 +886,25 @@
             ctx.fillText((Math.round(val * 10) / 10) + '', padL - 6, padT + (chartH / 4) * y + 4);
         }
 
-        // Draw stacked area
-        var barW = chartW / times.length;
+        drawAreaCurve(ctx, precip, padL, padT, chartW, chartH, maxVal, 'rgba(56,189,248,.5)', 'rgba(56,189,248,.15)');
 
-        // Rain layer
-        drawArea(ctx, rain, padL, padT, chartW, chartH, maxVal, times.length, 'rgba(56,189,248,.5)', 'rgba(56,189,248,.15)');
-        // Showers layer
-        drawArea(ctx, showers, padL, padT, chartW, chartH, maxVal, times.length, 'rgba(2,132,199,.6)', 'rgba(2,132,199,.1)');
-        // Snow layer
-        drawArea(ctx, snow, padL, padT, chartW, chartH, maxVal, times.length, 'rgba(168,85,247,.5)', 'rgba(168,85,247,.1)');
-
-        // X-axis labels
         ctx.fillStyle = '#475569';
         ctx.textAlign = 'center';
+        var barW = chartW / times.length;
         for (var x = 0; x < times.length; x++) {
             if (x % 2 === 0 || times.length <= 6) {
                 ctx.fillText(times[x], padL + barW * x + barW / 2, padT + chartH + 20);
             }
         }
 
-        // Unit label
         ctx.fillStyle = '#64748b';
         ctx.textAlign = 'left';
         ctx.font = '10px Plus Jakarta Sans, sans-serif';
-        ctx.fillText('mm/h', padL, padT - 6);
+        ctx.fillText('mm', padL, padT - 6);
     }
 
-    function drawArea(ctx, values, padL, padT, chartW, chartH, maxVal, count, strokeColor, fillColor) {
-        var barW = chartW / count;
+    function drawAreaCurve(ctx, values, padL, padT, chartW, chartH, maxVal, strokeColor, fillColor) {
+        var barW = chartW / values.length;
         ctx.beginPath();
         ctx.moveTo(padL, padT + chartH);
         for (var i = 0; i < values.length; i++) {
@@ -801,8 +913,7 @@
             if (i === 0) ctx.lineTo(x, y);
             else {
                 var px = padL + barW * (i - 1) + barW / 2;
-                var cpx = (px + x) / 2;
-                ctx.bezierCurveTo(cpx, padT + chartH - (values[i - 1] / maxVal) * chartH, cpx, y, x, y);
+                ctx.bezierCurveTo((px + x) / 2, padT + chartH - (values[i - 1] / maxVal) * chartH, (px + x) / 2, y, x, y);
             }
         }
         ctx.lineTo(padL + barW * (values.length - 1) + barW / 2, padT + chartH);
@@ -818,8 +929,7 @@
             if (j === 0) ctx.moveTo(x2, y2);
             else {
                 var px2 = padL + barW * (j - 1) + barW / 2;
-                var cpx2 = (px2 + x2) / 2;
-                ctx.bezierCurveTo(cpx2, padT + chartH - (values[j - 1] / maxVal) * chartH, cpx2, y2, x2, y2);
+                ctx.bezierCurveTo((px2 + x2) / 2, padT + chartH - (values[j - 1] / maxVal) * chartH, (px2 + x2) / 2, y2, x2, y2);
             }
         }
         ctx.stroke();

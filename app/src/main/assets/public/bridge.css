@@ -366,20 +366,38 @@
 }
 
 /* --- Radar Container --- */
-.radar-container {
-    width: 100%; height: 320px; border-radius: 14px; overflow: hidden;
-    background: #0d1117; position: relative;
-    border: 1px solid rgba(255,255,255,.06);
+.radar-chart-container {
+    width: 100%; height: 240px; position: relative;
+    background: #0d1117; border-radius: 14px; overflow: hidden;
 }
-.radar-canvas { width: 100%; height: 100%; display: block; }
-.radar-legend {
-    position: absolute; bottom: 12px; left: 12px; right: 12px;
-    display: flex; gap: 8px; justify-content: center;
-    background: rgba(11,15,25,.85); padding: 8px 12px; border-radius: 8px;
+.radar-chart-container canvas { width: 100%; height: 100%; display: block; }
+.radar-front-card {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+}
+.radar-front-icon { font-size: 28px; }
+.radar-front-info { flex: 1; }
+.radar-front-title { font-size: 15px; font-weight: 600; color: #e2e8f0; }
+.radar-front-detail { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+.radar-map-legend {
+    background: rgba(11,15,25,.88); padding: 8px 12px; border-radius: 10px;
+    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.08);
+}
+.rml-row { display: flex; align-items: center; gap: 3px; }
+.rml-label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.rml-dot { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+.rml-time { font-size: 12px; color: #38bdf8; margin-top: 5px; }
+#ac-radar-map .leaflet-control-zoom a {
+    background: rgba(15,23,42,.85) !important; color: #e2e8f0 !important;
+    border: 1px solid rgba(255,255,255,.1) !important; width: 36px !important; height: 36px !important;
+    line-height: 36px !important; font-size: 18px !important; border-radius: 10px !important;
     backdrop-filter: blur(4px);
 }
-.radar-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; }
-.radar-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+#ac-radar-map .leaflet-control-zoom { border: none !important; box-shadow: none !important; }
+#ac-radar-map .leaflet-control-attribution {
+    background: rgba(15,23,42,.7) !important; color: #64748b !important;
+    font-size: 10px !important; backdrop-filter: blur(4px); border-radius: 6px 0 0 0;
+}
+#ac-radar-map .leaflet-control-attribution a { color: #94a3b8 !important; }
 
 /* --- Empty State --- */
 .empty-state {
