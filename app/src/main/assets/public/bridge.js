@@ -669,10 +669,10 @@
         if (window.L) { callback(); return; }
         var css = document.createElement('link');
         css.rel = 'stylesheet';
-        css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+        css.href = 'leaflet.min.css';
         document.head.appendChild(css);
         var js = document.createElement('script');
-        js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+        js.src = 'leaflet.min.js';
         js.onload = function() { callback(); };
         js.onerror = function() { callback(); };
         document.head.appendChild(js);
