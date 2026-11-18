@@ -1,0 +1,36 @@
+{
+  "name": "video-downloader",
+  "description": "Détecte les vidéos d'une page et les télécharge en plusieurs qualités, en ignorant les publicités.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "dev:edge": "wxt -b edge",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "build:edge": "wxt build -b edge",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "zip:edge": "wxt zip -b edge",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "postinstall": "wxt prepare",
+    "e2e": "npm run build && node tests/e2e/smoke.mjs .e2e"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@wxt-dev/module-react": "^1.2.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1",
+    "wxt": "^0.21.5"
+  },
+  "dependencies": {
+    "mux.js": "^6.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

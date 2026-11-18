@@ -1,0 +1,4 @@
+{
+  "extName": { "message": "Video Detector & Downloader" },
+  "extDescription": { "message": "Détecte les vidéos d'une page et les télécharge en plusieurs qualités, en ignorant les publicités." }
+}
